@@ -27,7 +27,7 @@ class SupplierForm(FlaskForm):
     id = StringField("Id", validators=[DataRequired()])
     location = StringField("Location", validators=[DataRequired()])
     name = StringField("Name", validators=[DataRequired()])
-    lead_time = StringField("Lead Time", validators=[DataRequired()])
+    lead_time = IntegerField("Lead Time", validators=[DataRequired()])
     submit = SubmitField("Add")
 
     def validate_id(self, id):
@@ -230,6 +230,8 @@ class AddDesignImprintedHtpForm(FlaskForm):
     location = StringField("Location", validators=[DataRequired()])
     category = StringField("Category", validators=[DataRequired()])
     total_quantity = StringField("Total Quantity", validators=[DataRequired()])
+    design_code = StringField("Design Code")
+
     submit = SubmitField("Create")
 
 
@@ -242,6 +244,8 @@ class AddDesignedClothingForm(FlaskForm):
     size = StringField("Size", validators=[DataRequired()])
     category = StringField("Category", validators=[DataRequired()])
     image = FileField("Image", validators=[FileRequired()])
+    design_code = StringField("Design Code")
+
     submit = SubmitField("Add")
 
 
@@ -289,5 +293,59 @@ class DecreaseDesignImprintedHtpForm(FlaskForm):
         if design_imprinted_htp.total_quantity < self.delete_quantity.data:
             self.delete_quantity.errors.append(
                 f'Product for SKU ID: {self.sku_id.data}, only {design_imprinted_htp.total_quantity} units are available')
+            return False
+        return result
+
+
+class UpdatePlainClothingLocationForm(FlaskForm):
+    sku_id = StringField("SKU Id", validators=[DataRequired()])
+    location = StringField("Location", validators=[DataRequired()])
+    submit = SubmitField("Update")
+
+    def validate(self):
+        if not FlaskForm.validate(self):
+            return False
+        result = True
+        plain_clothing = PlainClothing.query.filter_by(
+            sku_id=self.sku_id.data).first()
+        if not plain_clothing:
+            self.sku_id.errors.append(
+                f'Product for SKU ID: {self.sku_id.data} is not present. Please create Plain Clothing')
+            return False
+        return result
+
+
+class UpdateHtpLocationForm(FlaskForm):
+    sku_id = StringField("SKU Id", validators=[DataRequired()])
+    location = StringField("Location", validators=[DataRequired()])
+    submit = SubmitField("Update")
+
+    def validate(self):
+        if not FlaskForm.validate(self):
+            return False
+        result = True
+        htp = Htp.query.filter_by(
+            sku_id=self.sku_id.data).first()
+        if not htp:
+            self.sku_id.errors.append(
+                f'Product for SKU ID: {self.sku_id.data} is not present. Please create HTP')
+            return False
+        return result
+
+
+class UpdateEmbroideryLocationForm(FlaskForm):
+    sku_id = StringField("SKU Id", validators=[DataRequired()])
+    location = StringField("Location", validators=[DataRequired()])
+    submit = SubmitField("Update")
+
+    def validate(self):
+        if not FlaskForm.validate(self):
+            return False
+        result = True
+        embroidery = Embroidery.query.filter_by(
+            sku_id=self.sku_id.data).first()
+        if not embroidery:
+            self.sku_id.errors.append(
+                f'Product for SKU ID: {self.sku_id.data} is not present. Please create Embroidery')
             return False
         return result

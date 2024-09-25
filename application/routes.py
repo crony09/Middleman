@@ -4,8 +4,8 @@ import os
 from application import app, models, db, utils
 from flask import render_template, request, json, Response, jsonify, redirect, flash, url_for
 from application.models import User, Enrollment, Supplier, IncomingProduct, ProductSupplier, PlainClothing, Embroidery, Htp, DesignClothing, DesignImprintedHtp
-from application.forms import RegistrationForm, SupplierForm, AddPlainClothingForm, IncreasePlainClothingForm, AddPlainClothingForm, AddEmbroideryForm, AddHtpForm, IncreaseEmbroideryForm, IncreaseHtpForm
-from application.forms import DecreasePlainClothingForm, DecreaseHtpForm, DecreaseEmbroideryForm, AddDesignImprintedHtpForm, AddDesignedClothingForm, DecreaseDesignedClothingForm, DecreaseDesignImprintedHtpForm
+from application.forms import RegistrationForm, SupplierForm, AddPlainClothingForm, IncreasePlainClothingForm, AddPlainClothingForm, AddEmbroideryForm, AddHtpForm, IncreaseEmbroideryForm, IncreaseHtpForm, UpdateHtpLocationForm, UpdateEmbroideryLocationForm
+from application.forms import DecreasePlainClothingForm, DecreaseHtpForm, DecreaseEmbroideryForm, AddDesignImprintedHtpForm, AddDesignedClothingForm, DecreaseDesignedClothingForm, DecreaseDesignImprintedHtpForm, UpdatePlainClothingLocationForm
 from werkzeug.utils import secure_filename
 
 
@@ -481,7 +481,8 @@ def add_design_imprinted_htp():
         location = form.location.data
         category = form.category.data
         total_quantity = form.total_quantity.data
-        sku_id = utils.generate_sku_id(category)
+        design_code = form.design_code.data
+        sku_id = utils.generate_sku_id(category, design_code)
         design_imprinted_htp = DesignImprintedHtp(
             sku_id=sku_id,
             location=location,
@@ -507,9 +508,10 @@ def add_designed_clothing():
         sleeve_type = form.sleeve_type.data
         size = form.size.data
         category = form.category.data
+        design_code = form.design_code.data
         f = form.image.data
         image_url = utils.upload_image_to_bucket(f)
-        sku_id = utils.generate_sku_id(category)
+        sku_id = utils.generate_sku_id(category, design_code)
         designed_clothing = DesignClothing(
             sku_id=sku_id,
             location=location,
@@ -599,3 +601,101 @@ def decrease_design_imprinted_htp(sku_id=None):
             flash(f"Oops! No Item present for {sku_id}", "danger")
             return redirect(url_for("view_design_imprinted_htp"))
     return render_template("ship_end_product_request.html", title="Ship Design Imprinted HTP", form=form)
+
+
+@app.route("/products/end/design_imprinted_htp/delete", methods=["POST"])
+def delete_design_imprinted_htp():
+    sku_id = request.form.get('sku_id')
+    htp = DesignImprintedHtp.query.filter_by(sku_id=sku_id).first()
+    if htp is None:
+        flash(f"Oops! No Product present for {sku_id}", "danger")
+        return redirect(url_for("view_design_imprinted_htp"))
+    db.session.delete(htp)
+    db.session.commit()
+    flash(f"Deleted Design Imprinted HTP for {sku_id}", "success")
+    return redirect(url_for("view_design_imprinted_htp"))
+
+
+@app.route("/products/end/designed_clothing/delete", methods=["POST"])
+def delete_designed_clothing():
+    sku_id = request.form.get('sku_id')
+    designed_clothing = DesignClothing.query.filter_by(sku_id=sku_id).first()
+    if designed_clothing is None:
+        flash(f"Oops! No Product present for {sku_id}", "danger")
+        return redirect(url_for("view_designed_clothing"))
+    db.session.delete(designed_clothing)
+    db.session.commit()
+    flash(f"Deleted Designed Clothing for {sku_id}", "success")
+    return redirect(url_for("view_designed_clothing"))
+
+
+@app.route("/products/raw/plain_clothing/<sku_id>/update", methods=["GET", "POST"])
+def update_plain_clothing_location(sku_id=None):
+    form = UpdatePlainClothingLocationForm()
+    if sku_id:
+        form.sku_id.data = sku_id
+    if form.validate_on_submit():
+        sku_id = form.sku_id.data
+        new_location = form.location.data
+        plain_clothing = PlainClothing.query.filter_by(
+            sku_id=sku_id).first()
+        if plain_clothing:
+            old_location = plain_clothing.location
+            plain_clothing.location = new_location
+            plain_clothing.updated_at = datetime.datetime.utcnow()
+            db.session.commit()
+            flash(
+                f"Updated location of product: {sku_id} from: {old_location} to: {new_location}", "success")
+            return render_template("update_plain_clothing_response.html", title="Updated Plain Clothing Quantity", data=plain_clothing)
+        else:
+            flash(f"Oops! No Item present for {sku_id}", "danger")
+            return redirect(url_for("view_plain_clothing"))
+    return render_template("update_raw_product_location_request.html", title="Update Plain Clothing Location", form=form)
+
+
+@app.route("/products/raw/htp/<sku_id>/update", methods=["GET", "POST"])
+def update_htp_location(sku_id=None):
+    form = UpdateHtpLocationForm()
+    if sku_id:
+        form.sku_id.data = sku_id
+    if form.validate_on_submit():
+        sku_id = form.sku_id.data
+        new_location = form.location.data
+        htp = Htp.query.filter_by(
+            sku_id=sku_id).first()
+        if htp:
+            old_location = htp.location
+            htp.location = new_location
+            htp.updated_at = datetime.datetime.utcnow()
+            db.session.commit()
+            flash(
+                f"Updated location of product: {sku_id} from: {old_location} to: {new_location}", "success")
+            return render_template("update_htp_response.html", title="Updated HTP Quantity", data=htp)
+        else:
+            flash(f"Oops! No Item present for {sku_id}", "danger")
+            return redirect(url_for("view_htp"))
+    return render_template("update_raw_product_location_request.html", title="Update HTP Location", form=form)
+
+
+@app.route("/products/raw/embroidery/<sku_id>/update", methods=["GET", "POST"])
+def update_embroidery_location(sku_id=None):
+    form = UpdateEmbroideryLocationForm()
+    if sku_id:
+        form.sku_id.data = sku_id
+    if form.validate_on_submit():
+        sku_id = form.sku_id.data
+        new_location = form.location.data
+        embroidery = Embroidery.query.filter_by(
+            sku_id=sku_id).first()
+        if embroidery:
+            old_location = embroidery.location
+            embroidery.location = new_location
+            embroidery.updated_at = datetime.datetime.utcnow()
+            db.session.commit()
+            flash(
+                f"Updated location of product: {sku_id} from: {old_location} to: {new_location}", "success")
+            return render_template("update_embroidery_response.html", title="Updated Embroidery Quantity", data=embroidery)
+        else:
+            flash(f"Oops! No Item present for {sku_id}", "danger")
+            return redirect(url_for("view_embroidery"))
+    return render_template("update_raw_product_location_request.html", title="Update Embroidery Location", form=form)
